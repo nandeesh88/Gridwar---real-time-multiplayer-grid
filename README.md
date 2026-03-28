@@ -1,222 +1,169 @@
 # GridWar
 
-A real-time multiplayer tile-claiming game. 1,600 tiles. Infinite competition.
+Real-time multiplayer tile-claiming game built for the InboxKit Full Stack Intern Assignment.
 
-🔴 **[Live Demo →](https://gridwar.vercel.app)**
+Live — https://gridwar-real-time-multiplayer-grid.vercel.app
 
 ---
 
 ## What it does
 
-- A 40×40 grid (1,600 tiles) shared across all connected users
-- Click any tile to claim it — your color fills it instantly
-- Every connected user sees your claim in real time
-- 5-second cooldown between claims (enforced server-side)
-- Live leaderboard ranked by tiles owned
-- Activity feed showing the last 8 claims
+A 40x40 grid (1,600 tiles) shared across all connected users. Click any tile to claim it. Everyone sees your move instantly. A 5-second cooldown is enforced server-side between claims. Leaderboard and activity feed update in real time.
 
 ---
 
-## Tech stack
+## Tech Stack
 
-| Layer | Tech | Why |
-|---|---|---|
-| Frontend | Next.js 14, TypeScript, TailwindCSS | App router, fast builds, type safety |
-| Real-time | Socket.io | WebSocket with automatic fallback, room broadcasting |
-| Backend | Node.js, Express | Lightweight, non-blocking, pairs perfectly with Socket.io |
-| Database | MongoDB Atlas | Persistent tile ownership, flexible schema |
-| Cache | Upstash Redis | TTL-based cooldown keys, zero-config expiry |
-| Deployment | Vercel + Render | Frontend and backend deployed independently |
+| Layer | Tech |
+|---|---|
+| Frontend | Next.js 14, TypeScript, TailwindCSS |
+| Real-time | Socket.io |
+| Backend | Node.js, Express |
+| Database | MongoDB Atlas |
+| Cache | Upstash Redis |
+| Deploy | Vercel (frontend) + Render (backend) |
 
 ---
 
 ## Architecture
+
 ```
 Browser (Next.js)
-    │
-    │  WebSocket (Socket.io)
-    ▼
-Node.js Server (Express + Socket.io)
-    │              │
-    ▼              ▼
-MongoDB Atlas   Upstash Redis
+      |
+      |  WebSocket — Socket.io
+      v
+Node.js + Express
+      |              |
+      v              v
+MongoDB Atlas    Upstash Redis
 (tile ownership) (cooldown TTLs)
 ```
 
-### Real-time flow
+---
 
-1. User clicks a tile → client emits `tile:claim`
+## Real-time Flow
+
+1. User clicks tile — client emits `tile:claim`
 2. Server checks Redis for active cooldown
-3. If cooldown active → emits `tile:rejected` back to that user only
-4. If clear → writes to MongoDB atomically (`findOneAndUpdate` with upsert)
-5. Sets Redis TTL key (`SET user:{name}:cooldown EX 5`)
-6. Broadcasts `tile:updated` to **all** connected clients
-7. All browsers update that tile's color instantly
+3. If cooldown active — emits `tile:rejected` to that user only
+4. If clear — MongoDB `findOneAndUpdate` (atomic, handles conflicts)
+5. Sets Redis TTL key `cooldown:{user} EX 5`
+6. Broadcasts `tile:updated` to all connected clients
+7. All browsers update instantly
 
-### Conflict resolution
-
-Two users clicking the same tile simultaneously:
-- MongoDB's `findOneAndUpdate` is atomic — one write wins
-- Both clients receive `tile:updated` with the final state
-- The losing user's optimistic UI update is corrected automatically
-- Last write wins — intentional for this game type
-
-### Cooldown system
-
-- Enforced **server-side** via Redis TTL keys — cannot be bypassed by the client
-- Key: `cooldown:{userName}` with 5-second expiry
-- Client receives remaining TTL on connect (handles page refresh mid-cooldown)
-- UI shows live countdown bar synced to server state
+Conflict resolution — two users clicking the same tile simultaneously are handled by MongoDB's atomic `findOneAndUpdate`. One write wins, both clients receive the correct final state.
 
 ---
 
-## Running locally
+## Socket Events
 
-### Prerequisites
+| Direction | Event | Description |
+|---|---|---|
+| Client to Server | `grid:init` | Request full grid on connect |
+| Client to Server | `user:join` | Register name and color |
+| Client to Server | `tile:claim` | Claim a tile |
+| Server to All | `tile:updated` | Broadcast every claim |
+| Server to All | `leaderboard:updated` | Updated scores |
+| Server to User | `tile:rejected` | Cooldown still active |
+| Server to User | `user:cooldown` | Remaining cooldown TTL |
 
-- Node.js 18+
-- MongoDB Atlas account (free tier)
-- Upstash Redis account (free tier)
+---
 
-### 1. Clone and install
+## Project Structure
+
+```
+gridwar/
+├── client/
+│   ├── app/
+│   │   ├── page.tsx
+│   │   ├── layout.tsx
+│   │   └── globals.css
+│   ├── components/
+│   │   ├── Grid.tsx
+│   │   ├── Tile.tsx
+│   │   ├── Leaderboard.tsx
+│   │   ├── CooldownBar.tsx
+│   │   ├── ActivityFeed.tsx
+│   │   └── UserSetup.tsx
+│   ├── hooks/
+│   │   ├── useSocket.ts
+│   │   └── useGrid.ts
+│   └── lib/
+│       ├── colors.ts
+│       └── constants.ts
+└── server/
+    └── src/
+        ├── index.ts
+        ├── socket/handlers.ts
+        ├── services/
+        │   ├── tileService.ts
+        │   ├── cooldownService.ts
+        │   └── leaderboardService.ts
+        ├── models/
+        │   ├── Tile.ts
+        │   └── User.ts
+        └── config/
+            ├── db.ts
+            └── redis.ts
+```
+
+---
+
+## Running Locally
+
 ```bash
-git clone https://github.com/yourname/gridwar
+# Clone
+git clone https://github.com/nandeesh88/Gridwar---real-time-multiplayer-grid
 cd gridwar
 
-# Install server deps
+# Install
 cd server && npm install
-
-# Install client deps
 cd ../client && npm install
 ```
 
-### 2. Configure environment
-
-**`server/.env`**
-```env
+**server/.env**
+```
 PORT=4000
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/gridwar
-REDIS_URL=rediss://default:pass@your-db.upstash.io:6379
+MONGODB_URI=your_atlas_connection_string
+REDIS_URL=your_upstash_redis_url
 CLIENT_URL=http://localhost:3000
+NODE_ENV=development
 ```
 
-**`client/.env.local`**
-```env
+**client/.env.local**
+```
 NEXT_PUBLIC_SERVER_URL=http://localhost:4000
 ```
 
-### 3. Run both servers
-
-Terminal 1 — backend:
 ```bash
-cd server
-npm run dev
+# Run backend
+cd server && npm run dev
+
+# Run frontend
+cd client && npm run dev
 ```
 
-Terminal 2 — frontend:
-```bash
-cd client
-npm run dev
-```
+Open http://localhost:3000 — open multiple tabs with different names to test real-time sync.
 
-Open [http://localhost:3000](http://localhost:3000)
+---
+
+## Key Decisions
+
+**Redis for cooldowns** — TTL keys auto-expire with no cleanup needed. One `SET key EX 5` handles the entire cooldown lifecycle server-side. Cannot be bypassed from the client.
+
+**MongoDB atomic upsert** — `findOneAndUpdate` with `upsert: true` is a single atomic operation. Concurrent claims on the same tile are resolved at the database level with no race conditions.
+
+**React.memo on Tile** — With 1,600 tiles, only the single changed tile re-renders per `tile:updated` event instead of the entire grid.
+
+**Optimistic UI** — The clicking user sees their color immediately before server confirmation. Reverts if rejected. Eliminates perceived latency.
 
 ---
 
 ## Deployment
 
-### Backend → Railway
-
-1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
-2. Select the `gridwar/server` folder
-3. Add environment variables:
-   - `MONGODB_URI`
-   - `REDIS_URL`
-   - `CLIENT_URL` → your Vercel URL
-   - `PORT` → Railway sets this automatically
-4. Railway detects Node.js, runs `npm run build` then `npm start`
-5. Copy the Railway URL (e.g. `https://gridwar-server.up.railway.app`)
-
-### Frontend → Vercel
-
-1. Go to [vercel.com](https://vercel.com) → New Project → Import from GitHub
-2. Set **Root Directory** to `client`
-3. Add environment variable:
-   - `NEXT_PUBLIC_SERVER_URL` → your Railway URL from above
-4. Deploy — Vercel auto-detects Next.js
-
----
-
-## Project structure
-```
-gridwar/
-├── client/                         # Next.js frontend
-│   ├── app/
-│   │   ├── page.tsx                # Main page — wires all components
-│   │   ├── layout.tsx              # Root layout + metadata
-│   │   └── globals.css             # Animations + global styles
-│   ├── components/
-│   │   ├── Grid.tsx                # 40×40 tile grid renderer
-│   │   ├── Tile.tsx                # Single tile (memo optimized)
-│   │   ├── Leaderboard.tsx         # Live ranked leaderboard
-│   │   ├── CooldownBar.tsx         # 5s cooldown progress bar
-│   │   ├── ActivityFeed.tsx        # Last 8 claims with time ago
-│   │   └── UserSetup.tsx           # Name entry modal
-│   ├── hooks/
-│   │   ├── useSocket.ts            # All Socket.io logic + state
-│   │   └── useGrid.ts              # Tile pop animation state
-│   └── lib/
-│       ├── colors.ts               # 16 earthy colors + hash assignment
-│       └── constants.ts            # Grid dimensions, cooldown duration
-│
-└── server/                         # Node.js backend
-    └── src/
-        ├── index.ts                # Express + Socket.io server entry
-        ├── socket/
-        │   └── handlers.ts         # All socket event handlers
-        ├── services/
-        │   ├── tileService.ts      # MongoDB tile read/write
-        │   ├── cooldownService.ts  # Redis TTL cooldown logic
-        │   └── leaderboardService.ts # User tile count tracking
-        ├── models/
-        │   ├── Tile.ts             # Mongoose tile schema
-        │   └── User.ts             # Mongoose user schema
-        └── config/
-            ├── db.ts               # MongoDB connection
-            └── redis.ts            # Redis connection with TLS
-```
-
----
-
-## Design decisions
-
-**Why Socket.io over raw WebSockets?**
-Automatic reconnection, room broadcasting with `io.emit()`, and fallback to long-polling. For a multiplayer game where connection reliability matters, Socket.io's abstractions are worth the small overhead.
-
-**Why Redis for cooldowns instead of MongoDB?**
-TTL keys in Redis expire automatically — no cron jobs, no cleanup queries. A `SET key EX 5` is all the cooldown logic needs. MongoDB would require polling or TTL indexes with less precision.
-
-**Why MongoDB over PostgreSQL?**
-Tile state is a simple document — `{index, ownerName, ownerColor, claimedAt}`. No joins needed. MongoDB's `findOneAndUpdate` with `upsert: true` gives atomic claim logic in one query.
-
-**Why optimistic UI updates?**
-The clicking user sees their color immediately (before server confirms). If the server rejects (cooldown), the tile reverts. This makes the game feel instant even with network latency.
-
-**Memo optimization on Tile component**
-With 1,600 tiles, re-rendering all tiles on every update would be slow. `React.memo` on the `Tile` component means only the changed tile re-renders on each `tile:updated` event.
-
----
-
-## What I'd add with more time
-
-- Zoom and pan for the grid (react-zoom-pan-pinch)
-- Territory mode — bonus points for owning connected regions
-- User profiles with claim history
-- Spectator mode — watch without claiming
-- Grid snapshot saved every hour
-
----
-
-## Author
-
-Built for the InboxKit Full Stack Intern assignment.
+| | Platform | 
+|---|---|
+| Frontend | Vercel — root directory set to `client` |
+| Backend | Render — root directory set to `server`, build: `npm install && npm run build`, start: `npm start` |
+| Database | MongoDB Atlas free tier |
+| Cache | Upstash Redis free tier |
