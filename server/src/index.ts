@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import { Request, Response } from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
@@ -55,7 +56,7 @@ app.use(
 app.use(express.json());
 
 // ✅ Health route
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", ts: Date.now() });
 });
 
