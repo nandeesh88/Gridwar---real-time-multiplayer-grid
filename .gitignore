@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+.env
+.env.local
+
+# workspace-specific
+client/.next/
+client/node_modules/
+server/node_modules/
+server/dist/
