@@ -1,14 +1,28 @@
 export const USER_COLORS = [
-  "#c0392b", "#d4762a", "#7b8c2a", "#2a7b6e",
-  "#6b4c9a", "#3a7abf", "#b5860d", "#4a7a3a",
-  "#8a3a6a", "#2a6b8a", "#7a5a2a", "#c4534a",
-  "#a0522d", "#556b2f", "#4682b4", "#cd853f",
+  "#c0392b", // maroon red
+  "#2a7b6e", // teal green
+  "#6b4c9a", // purple
+  "#d4762a", // burnt orange
+  "#3a7abf", // steel blue
+  "#7b8c2a", // olive green
+  "#c4534a", // coral red
+  "#2a6b8a", // ocean blue
+  "#8a3a6a", // wine pink
+  "#4a7a3a", // forest green
+  "#b5860d", // golden amber
+  "#7a5a2a", // warm brown
+  "#1a7a6e", // dark teal
+  "#a0522d", // sienna
+  "#556b2f", // dark olive
+  "#4682b4", // cornflower blue
 ];
 
 export const getColorForUser = (name: string): string => {
-  let hash = 0;
+  // Better hash — spreads users across palette more evenly
+  let hash = 5381;
   for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    hash = ((hash << 5) + hash) ^ name.charCodeAt(i);
+    hash = hash & hash; // convert to 32-bit int
   }
   return USER_COLORS[Math.abs(hash) % USER_COLORS.length];
 };
