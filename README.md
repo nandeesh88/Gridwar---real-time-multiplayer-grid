@@ -1,6 +1,6 @@
 # GridWar
 
-Real-time multiplayer tile-claiming game built for the InboxKit Full Stack Intern Assignment.
+Real-time multiplayer tile-claiming game
 
 Live — https://gridwar-real-time-multiplayer-grid.vercel.app
 
